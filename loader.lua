@@ -5,8 +5,8 @@ local IDENTIFIER = "1229300"
 local DISCORD_INVITE = "https://discord.gg/rvchub"
 
 local GAMES = {
-    [99409088950210] = { name = "Survive a Million Monkeys", script = "TOKEN_MONKEYS", reentrant = true },
-    [115317125060158] = { name = "Survive a Million Monkeys", script = "TOKEN_MONKEYS", reentrant = true },
+    [99409088950210] = { name = "Survive a Million Monkeys", script = "93f9d39d8cf724e8129bf71c3449021c0724529c819980c28e952a2af1ca435c", reentrant = true },
+    [115317125060158] = { name = "Survive a Million Monkeys", script = "93f9d39d8cf724e8129bf71c3449021c0724529c819980c28e952a2af1ca435c", reentrant = true },
     [114326934417838] = { name = "Break and Steal an Egg", script = "TOKEN_BREAKANDSTEAL" },
     [74023858073178] = { name = "Bike For Egg", script = "TOKEN_BIKEFOREGG" },
     [107535308163741] = { name = "Huss Valley", script = "TOKEN_HUSSVALLEY" },
@@ -19,8 +19,14 @@ local UNIVERSES = {
     [9098570654] = { name = "Survive an Apocalypse", script = "TOKEN_APOCALYPSE", reentrant = true },
 }
 
-local function report(msg)
-    warn("[Vibecoders] " .. msg)
+local function notify(message)
+    pcall(function()
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = "RVC Hub",
+            Text = message,
+            Duration = 7,
+        })
+    end)
 end
 
 if not game:IsLoaded() then
@@ -29,35 +35,12 @@ end
 
 local entry = GAMES[game.PlaceId] or UNIVERSES[game.GameId]
 if not entry then
-    report(string.format("Unsupported place (PlaceId %.0f, GameId %.0f).", game.PlaceId, game.GameId))
+    notify("This game isn't supported.")
     return
 end
 
-local queueTeleport = queue_on_teleport
-    or (syn and syn.queue_on_teleport)
-    or (fluxus and fluxus.queue_on_teleport)
-
-local qenv = (getgenv and getgenv()) or _G
-if queueTeleport and not qenv.__VibecodersQueued then
-    qenv.__VibecodersQueued = true
-    pcall(queueTeleport, 'loadstring(game:HttpGet("' .. LOADER_URL .. '"))()')
-end
-
-local httpRequest = (syn and syn.request) or request or http_request or (fluxus and fluxus.request)
-local hasHttpGet = false
-do
-    local ok, fn = pcall(function()
-        return game.HttpGet
-    end)
-    hasHttpGet = ok and type(fn) == "function"
-end
-
-if not (httpRequest or hasHttpGet) then
-    report("No HTTP function available.")
-    return
-end
-if type(loadstring) ~= "function" then
-    report("loadstring is not available.")
+if type(entry.script) ~= "string" or entry.script:match("^TOKEN_") then
+    notify("This game isn't available yet.")
     return
 end
 
@@ -70,79 +53,87 @@ end
 
 local statusKey = entry.script .. "@" .. tostring(game.JobId)
 local status = loader.status[statusKey]
-if status == "loading" or (status and not entry.reentrant) then
-    report(entry.name .. " is already loaded or loading in this server.")
+if status == "loading" or status == "running" or (status == "done" and not entry.reentrant) then
     return
 end
 loader.status[statusKey] = "loading"
 
+local function abort(message)
+    loader.status[statusKey] = nil
+    notify(message)
+end
+
+local queueTeleport = queue_on_teleport or queueonteleport
+    or (syn and syn.queue_on_teleport)
+    or (fluxus and fluxus.queue_on_teleport)
+
+if queueTeleport and not env.__VibecodersQueued then
+    local ok = pcall(queueTeleport, 'loadstring(game:HttpGet("' .. LOADER_URL .. '"))()')
+    if ok then
+        env.__VibecodersQueued = true
+    end
+end
+
+if type(loadstring) ~= "function" then
+    abort("This executor doesn't support loading scripts.")
+    return
+end
+
+local httpRequest = (syn and syn.request) or request or http_request or (fluxus and fluxus.request)
+
 local function fetch(url)
-    if httpRequest then
-        local ok, res = pcall(httpRequest, { Url = url, Method = "GET" })
-        if ok and type(res) == "table" then
-            local code = res.StatusCode
-            if type(code) == "number" and (code < 200 or code >= 300) then
-                return nil, "HTTP " .. code
+    if type(httpRequest) == "function" then
+        local ok, response = pcall(httpRequest, { Url = url, Method = "GET" })
+        if ok and type(response) == "table" and response.Success ~= false then
+            local code = response.StatusCode
+            if (type(code) ~= "number" or (code >= 200 and code < 300))
+                and type(response.Body) == "string" and #response.Body > 0 then
+                return response.Body
             end
-            if res.Success == false then
-                return nil, "request failed"
-            end
-            if type(res.Body) ~= "string" or res.Body == "" then
-                return nil, "empty response"
-            end
-            return res.Body
-        end
-        if not hasHttpGet then
-            return nil, ok and "unexpected response" or tostring(res)
         end
     end
 
     local ok, body = pcall(function()
         return game:HttpGet(url)
     end)
-    if not ok then
-        return nil, tostring(body)
+    if ok and type(body) == "string" and #body > 0 then
+        return body
     end
-    if type(body) ~= "string" or body == "" then
-        return nil, "empty response"
-    end
-    return body
 end
 
-local function abort(msg)
-    loader.status[statusKey] = nil
-    report(msg)
-end
-
-local source, err = fetch(UI_URL)
+local source = fetch(UI_URL)
 if not source or source:match("^%s*404: Not Found") then
-    abort("Download failed for " .. UI_URL .. ": " .. (source and "file not found" or tostring(err)))
+    abort("Could not download the RVC Hub interface.")
     return
 end
 
-local chunk, compileErr = loadstring(source)
+local chunk = loadstring(source)
 if not chunk then
-    abort("Could not compile the interface library: " .. tostring(compileErr))
+    abort("Could not load the RVC Hub interface.")
     return
 end
 
 local loaded, Library = pcall(chunk)
 if not loaded or type(Library) ~= "table" then
-    abort("Interface library errored: " .. tostring(Library))
+    abort("Could not start the RVC Hub interface.")
     return
 end
 
-local made, provider = pcall(Library.Providers.Jnkie, {
-    Service = SERVICE,
-    Identifier = IDENTIFIER,
-    ScriptId = entry.script,
-})
-if not made then
-    abort("Key provider errored: " .. tostring(provider))
+local made, provider = pcall(function()
+    return Library.Providers.Jnkie({
+        Service = SERVICE,
+        Identifier = IDENTIFIER,
+        ScriptId = entry.script,
+    })
+end)
+
+if not made or type(provider) ~= "table"
+    or type(provider.Validate) ~= "function" or type(provider.LoadScript) ~= "function" then
+    abort("Could not connect to the RVC Hub key system.")
     return
 end
 
-local opened, gateErr = pcall(Library.CreateKeyGate, Library, {
+local opened, gate = pcall(Library.CreateKeyGate, Library, {
     Title = "RVC Hub",
     Subtitle = entry.name,
     Provider = provider,
@@ -151,12 +142,12 @@ local opened, gateErr = pcall(Library.CreateKeyGate, Library, {
     },
     OnSuccess = function(key)
         loader.status[statusKey] = "running"
-        local ok, runErr = xpcall(provider.LoadScript, function(e)
-            return debug.traceback(tostring(e), 2)
-        end, key)
-        loader.status[statusKey] = "done"
-        if not ok then
-            report(entry.name .. " errored: " .. tostring(runErr))
+        local ok, result = pcall(provider.LoadScript, key)
+        if ok and result ~= false then
+            loader.status[statusKey] = "done"
+        else
+            loader.status[statusKey] = nil
+            notify("Could not load " .. entry.name .. ". Run RVC Hub again to retry.")
         end
     end,
     OnClose = function()
@@ -165,6 +156,7 @@ local opened, gateErr = pcall(Library.CreateKeyGate, Library, {
         end
     end,
 })
-if not opened then
-    abort("Key window errored: " .. tostring(gateErr))
+
+if not opened or type(gate) ~= "table" then
+    abort("Could not open the RVC Hub key window.")
 end
