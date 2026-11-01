@@ -4,20 +4,19 @@ local SERVICE = "hub"
 local IDENTIFIER = "1229300"
 local DISCORD_INVITE = "https://discord.gg/rvchub"
 
+
 local GAMES = {
     [99409088950210] = { name = "Survive a Million Monkeys", script = "93f9d39d8cf724e8129bf71c3449021c0724529c819980c28e952a2af1ca435c", reentrant = true },
     [115317125060158] = { name = "Survive a Million Monkeys", script = "93f9d39d8cf724e8129bf71c3449021c0724529c819980c28e952a2af1ca435c", reentrant = true },
-    [114326934417838] = { name = "Break and Steal an Egg", script = "TOKEN_BREAKANDSTEAL" },
-    [74023858073178] = { name = "Bike For Egg", script = "TOKEN_BIKEFOREGG" },
-    [107535308163741] = { name = "Huss Valley", script = "TOKEN_HUSSVALLEY" },
-    [893973440] = { name = "Flee the Facility", script = "TOKEN_FLEEFACILITY" },
-    [120219252362013] = { name = "Throw Food For Animals", script = "TOKEN_THROWFOOD", reentrant = true },
+    [114326934417838] = { name = "Break and Steal an Egg", script = "49ac5024022356e2a4ea2b08240427e520ceb7178bfbb6f3dac3db1136a57d72" },
+    [120219252362013] = { name = "Throw Food For Animals", script = "661edaaddd0fd5b0550793fff39204754036497aec8391613aff31afe18609b2", reentrant = true },
 }
 
 local UNIVERSES = {
-    [10771421858] = { name = "DONT SPLASH", script = "TOKEN_DONTSPLASH", reentrant = true },
-    [9098570654] = { name = "Survive an Apocalypse", script = "TOKEN_APOCALYPSE", reentrant = true },
+    [10771421858] = { name = "DONT SPLASH", script = "6be94740b6db447ff633009ba429be2ab1ea34377d13fb1ac36e4f3d379d4b71", reentrant = true },
+    [9098570654] = { name = "Survive an Apocalypse", script = "808c37cfc10bd339ba8289b11996b944381fe4660706e9f40f18fee8485e80d3", reentrant = true },
 }
+
 
 local function notify(message)
     pcall(function()
