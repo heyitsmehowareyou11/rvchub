@@ -134,6 +134,7 @@ end
 
 local opened, gate = pcall(Library.CreateKeyGate, Library, {
     Title = "RVC Hub",
+    Icon = "https://github.com/destoryher/RobloxUI/blob/main/imageui.png?raw=true",
     Subtitle = entry.name,
     Provider = provider,
     Links = {
