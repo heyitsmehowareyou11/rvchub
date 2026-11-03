@@ -6344,6 +6344,176 @@ end
 return Tab
 end
 
+__defs["core/tier"] = function()
+local Services = require("util/services")
+local Create = require("util/create")
+
+-- Presentation-only membership label for the window footer: "<version> • Free" or "<version> • ✦ Premium".
+-- It never decides entitlement; the authenticated script is responsible for that.
+local Tier = {}
+
+local GOLD_LIGHT = Color3.fromRGB(255, 232, 168)
+local GOLD_MID = Color3.fromRGB(240, 197, 96)
+local GOLD_DEEP = Color3.fromRGB(201, 154, 46)
+local PREMIUM_TEXT = "\u{2726} Premium"
+local FREE_TEXT = "Free"
+local DOT = "\u{2022}"
+local GAP = 5
+
+local UNSET = { unverified = true, unknown = true, none = true, [""] = true }
+
+-- Returns "Free", "Premium" or nil (unverified). Anything unrecognised is treated as unverified, never as Premium.
+function Tier.normalize(value, where)
+	if value == nil or value == false then
+		return nil
+	end
+	local key = type(value) == "string" and string.lower(value) or nil
+	if key == "free" then
+		return "Free"
+	elseif key == "premium" then
+		return "Premium"
+	elseif key and UNSET[key] then
+		return nil
+	end
+	warn(("[UI] %s: AccessTier must be \"Free\", \"Premium\" or \"Unverified\"; showing no membership label"):format(where))
+	return nil
+end
+
+-- Maps key-gate validation metadata (the `data` passed to OnSuccess) to a tier. Missing metadata stays unverified.
+function Tier.fromKeyData(data)
+	if type(data) ~= "table" then
+		return nil
+	end
+	if data.Premium == true then
+		return "Premium"
+	elseif data.Premium == false then
+		return "Free"
+	end
+	return nil
+end
+
+local function measure(text, font, size)
+	local service = Services.TextService
+	if service then
+		local ok, bounds = pcall(function()
+			return service:GetTextSize(text, size, font, Vector2.new(10000, 10000))
+		end)
+		if ok then
+			return bounds.X
+		end
+	end
+	return #text * size * 0.55
+end
+
+-- Appends the tier label after `line` (the footer's version text) in the same row.
+-- `reserve(theme)` returns the width available to the whole row in unscaled pixels; `lite` drops the glow stroke.
+-- With no tier the line keeps the exact size and position it was created with.
+function Tier.attach(window, line, lineFont, lineSize, reserve, lite)
+	local theme = window.Theme
+	local parent = line.Parent
+	local basePos, baseSize = line.Position, line.Size
+	local controller = { _tier = nil }
+
+	local dot = Create.new("TextLabel", { Name = "TierDot", Text = DOT, Visible = false, Parent = parent })
+	local label = Create.new("TextLabel", { Name = "Tier", Visible = false, Parent = parent })
+	local gradient = Create.new("UIGradient", {
+		Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, GOLD_LIGHT),
+			ColorSequenceKeypoint.new(0.55, GOLD_MID),
+			ColorSequenceKeypoint.new(1, GOLD_DEEP),
+		}),
+		Enabled = false,
+		Parent = label,
+	})
+	local glow = Create.new("UIStroke", {
+		ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual,
+		Color = GOLD_MID,
+		Thickness = 1,
+		Transparency = 0.82,
+		Enabled = false,
+		Parent = label,
+	})
+
+	local function place(inst, x, width)
+		inst.Position = UDim2.new(basePos.X.Scale, basePos.X.Offset + x, basePos.Y.Scale, basePos.Y.Offset)
+		inst.Size = UDim2.new(0, width, baseSize.Y.Scale, baseSize.Y.Offset)
+	end
+
+	local function layout()
+		local th = theme:Get()
+		local tier = controller._tier
+		if not tier then
+			dot.Visible, label.Visible = false, false
+			line.Position, line.Size, line.Visible = basePos, baseSize, true
+			return
+		end
+
+		local premium = tier == "Premium"
+		label.Text = premium and PREMIUM_TEXT or FREE_TEXT
+		label.Font = th.Font.Medium
+		label.TextSize = th.TextSize.Small
+		label.TextColor3 = premium and Color3.new(1, 1, 1) or th.Colors.TextDim
+		gradient.Enabled = premium
+		glow.Enabled = premium and not lite
+		dot.Font = th.Font.Regular
+		dot.TextSize = th.TextSize.Small
+		dot.TextColor3 = th.Colors.TextMuted
+
+		local tierW = math.ceil(measure(label.Text, label.Font, label.TextSize)) + 2
+		local avail = reserve(th)
+		local hasLine = line.Text ~= ""
+		if tierW > avail then
+			dot.Visible, label.Visible = false, false
+			line.Position, line.Size, line.Visible = basePos, baseSize, true
+			return
+		end
+
+		local dotW = hasLine and math.ceil(measure(DOT, dot.Font, dot.TextSize)) or 0
+		local rest = tierW + (hasLine and (dotW + GAP * 2) or 0)
+		local lineW = 0
+		if hasLine then
+			local natural = math.ceil(measure(line.Text, th.Font[lineFont], th.TextSize[lineSize])) + 1
+			lineW = math.floor(math.max(math.min(natural, avail - rest), 0))
+		end
+
+		local x = 0
+		place(line, x, lineW)
+		line.Visible = lineW > 0
+		if hasLine then
+			x = x + lineW + GAP
+			place(dot, x, dotW)
+			x = x + dotW + GAP
+		end
+		place(label, x, tierW)
+		dot.Visible, label.Visible = hasLine, true
+	end
+
+	window._maid:Give(theme:Watch(layout))
+
+	function controller:Set(tier)
+		if self._tier == tier then
+			return
+		end
+		self._tier = tier
+		layout()
+	end
+
+	function controller:Get()
+		return self._tier
+	end
+
+	function controller:SetText(text)
+		line.Text = text
+		line.Visible = true
+		layout()
+	end
+
+	return controller
+end
+
+return Tier
+end
+
 __defs["core/toast"] = function()
 local Create = require("util/create")
 local Tween = require("util/tween")
@@ -6545,6 +6715,7 @@ local Mount = require("util/mount")
 local Effects = require("core/effects")
 local Toast = require("core/toast")
 local Dialog = require("core/dialog")
+local Tier = require("core/tier")
 
 local UserInputService = Services.UserInputService
 
@@ -6613,6 +6784,7 @@ local function build(cfg, partial)
 		ToggleKey = "EnumItem|string",
 		Size = "Vector2",
 		Footer = "string|table",
+		AccessTier = "string",
 		OnClose = "function",
 		Id = "string",
 		TouchMode = "boolean",
@@ -6819,8 +6991,9 @@ local function build(cfg, partial)
 		Validate.check("CreateWindow Footer", footerCfg, { Text = "string", Subtext = "string", Avatar = "boolean" })
 	end
 	local showKey = cfg.ToggleKey ~= nil and not touch
+	local initialTier = Tier.normalize(cfg.AccessTier, "CreateWindow")
 	local footerH = 0
-	if footerCfg or showKey then
+	if footerCfg or showKey or cfg.AccessTier ~= nil then
 		footerH = (footerCfg and footerCfg.Avatar) and 58 or 38
 		local footer = Create.new("Frame", {
 			Name = "Footer",
@@ -6860,6 +7033,7 @@ local function build(cfg, partial)
 		end
 
 		local reserve = textX + (showKey and 76 or 12)
+		local metaLine, metaFont, metaSize
 		if footerCfg then
 			local text = footerCfg.Text
 			if text == nil and footerCfg.Avatar and player then
@@ -6877,6 +7051,7 @@ local function build(cfg, partial)
 					Parent = footer,
 				})
 				theme:Text(label, plain and "TextMuted" or "Text", plain and "Regular" or "Medium", plain and "Small" or "Body")
+				metaLine, metaFont, metaSize = label, plain and "Regular" or "Medium", plain and "Small" or "Body"
 			end
 			if hasSub then
 				local sub = Create.new("TextLabel", {
@@ -6888,8 +7063,26 @@ local function build(cfg, partial)
 					Parent = footer,
 				})
 				theme:Text(sub, "TextMuted", "Regular", "Small")
+				metaLine, metaFont, metaSize = sub, "Regular", "Small"
 			end
 		end
+		if not metaLine then
+			metaLine = Create.new("TextLabel", {
+				Name = "Text",
+				Position = UDim2.new(0, textX, 0, 1),
+				Size = UDim2.new(1, -reserve, 1, -1),
+				Text = "",
+				TextTruncate = Enum.TextTruncate.AtEnd,
+				Parent = footer,
+			})
+			theme:Text(metaLine, "TextMuted", "Regular", "Small")
+			metaFont, metaSize = "Regular", "Small"
+		end
+		self._footerText = metaLine
+		self._tier = Tier.attach(self, metaLine, metaFont, metaSize, function(t)
+			return t.Spacing.Sidebar - reserve
+		end, cfg.Effects == "Lite")
+		self._tier:Set(initialTier)
 
 		if showKey then
 			local badge = Create.new("Frame", {
@@ -7736,6 +7929,33 @@ function Window:SetSubtitle(text)
 	if label then
 		label.Text = text
 		label.Visible = text ~= ""
+	end
+end
+
+-- Presentation only: "Free", "Premium" or nil/"Unverified" (no label). Entitlement is enforced by the authenticated script.
+function Window:SetAccessTier(tier)
+	if self._destroyed then
+		return
+	end
+	tier = Tier.normalize(tier, "SetAccessTier")
+	self._cfg.AccessTier = tier
+	if self._tier then
+		self._tier:Set(tier)
+	end
+end
+
+function Window:GetAccessTier()
+	return self._tier and self._tier:Get() or nil
+end
+
+-- Replaces the footer text (usually the version string) without touching the membership label.
+function Window:SetFooterText(text)
+	if self._destroyed then
+		return
+	end
+	text = tostring(text)
+	if self._tier then
+		self._tier:SetText(text)
 	end
 end
 
@@ -9274,9 +9494,10 @@ local KeyGate = require("core/keygate")
 local Luarmor = require("providers/luarmor")
 local Jnkie = require("providers/jnkie")
 local Env = require("util/env")
+local Tier = require("core/tier")
 
 local VERSION = "0.10.0"
-local BUILD = "e98f07a78475"
+local BUILD = "512dc12f1b8c"
 
 local Library = {
 	Version = VERSION,
@@ -9331,6 +9552,11 @@ function Library:CreateKeyGate(cfg)
 		end)
 	end
 	return gate
+end
+
+-- Maps the `data` passed to a key gate's OnSuccess to "Free", "Premium" or nil (unverified), for Window:SetAccessTier.
+function Library:AccessTierFromKeyData(data)
+	return Tier.fromKeyData(data)
 end
 
 function Library:CheckVersion(expected)
