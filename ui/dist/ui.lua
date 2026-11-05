@@ -60,7 +60,7 @@ function Button.new(card, cfg)
 		end,
 	})
 	self._nameLabel = button
-	-- long button text wraps onto a second line instead of spilling past the edges
+
 	self:_fitHeader(button, 0, { padX = 24 })
 
 	self._maid:Give(button.MouseEnter:Connect(function()
@@ -1397,8 +1397,6 @@ function Keybind:_setListening(listening, input)
 	end
 end
 
--- While listening: Escape cancels, Backspace/Delete clears, any other key or mouse button binds.
--- Mouse clicks on the menu itself are ignored so you can click away; click in the game to bind one.
 function Keybind:_capture(input, processed)
 	local key = Keys.fromInput(input)
 	if not key then
@@ -1431,7 +1429,6 @@ function Keybind:Get()
 	return self._key
 end
 
--- The bind as a string for configs ("F", "MouseButton2"), or "" when unbound. Set() accepts it back.
 function Keybind:GetKeyName()
 	return self._key and self._key.Name or ""
 end
@@ -1643,7 +1640,7 @@ function Progress.new(card, cfg)
 		Parent = self.Header,
 	})
 	self:_style(valueLabel, "Medium", "Body")
-	-- the value text gets the width it needs (up to half the row); the name gets the rest
+
 	self:_addName(function(width)
 		local needed = valueLabel.Text == "" and 0 or Fit.width(valueLabel.Text, valueLabel.TextSize, valueLabel.Font) + 2
 		local valueW = math.min(needed, math.floor(width * 0.5))
@@ -1702,7 +1699,7 @@ function Progress:Set(value, text)
 		error("[UI] Progress:Set expects a number", 0)
 	end
 	value = math.clamp(value, self._min, self._max)
-	-- scripts often call Set every frame; skip the re-render and tween when nothing changed
+
 	if value == self._value and text == self._text then
 		return
 	end
@@ -1971,7 +1968,6 @@ function Stat.new(card, cfg)
 	self:_style(value, "Medium", "Body")
 	self._value = value
 
-	-- The value takes the width it needs (up to 60% of the row); the name gets the rest and wraps if it must.
 	self:_addName(function(width)
 		local needed = value.Text == "" and 0 or Fit.width(value.Text, value.TextSize, value.Font) + 2
 		local valueW = math.min(needed, math.floor(width * 0.6))
@@ -2497,8 +2493,6 @@ function Control:_rerender(animate)
 	end
 end
 
--- Long text wraps onto extra lines and the header grows, instead of being cut off with "...".
--- `reserve` is the space kept free on the right (number, or function(width) -> number).
 function Control:_fitHeader(label, reserve, opts)
 	opts = opts or {}
 	local window = self._ctx.Window
@@ -2882,7 +2876,6 @@ local function actionButton(window, parent, order, glyph, hoverToken, onClick)
 	return button
 end
 
--- Shared minimized look: window fill, accent gradient border.
 local function styleShell(theme, frame)
 	theme:Bind(frame, {
 		BackgroundColor3 = "Window",
@@ -4169,8 +4162,6 @@ local function shouldShow(mode, state)
 	return state ~= "open"
 end
 
--- ---------------------------------------------------------------- entry
-
 function Entry:_paint(animate)
 	if self._destroyed then
 		return
@@ -4246,8 +4237,6 @@ end
 
 Entry.Destroy = Entry.Remove
 
--- ----------------------------------------------------------------- list
-
 local function buildEntry(list, cfg)
 	local window = list._window
 	local theme = window.Theme
@@ -4319,7 +4308,6 @@ local function buildEntry(list, cfg)
 	styleText(theme, name, "Medium", "Body")
 	self._name = name
 
-	-- keep the name clear of the key badge, whatever width the key text ends up at
 	local function reserve()
 		name.Size = UDim2.new(1, -(24 + badge.AbsoluteSize.X / math.max(window._uiScale, 0.01) + 12), 1, 0)
 	end
@@ -4389,9 +4377,6 @@ function KeyList:Get(id)
 	return self._byId[id]
 end
 
--- Mirror existing library controls into one entry:
---   list:Link({ Name = "Kill Aura", Toggle = toggleControl, Keybind = keybindControl })
--- The entry's lit state follows the toggle; its key badge follows the keybind.
 function KeyList:Link(cfg)
 	Validate.check("KeybindList:Link", cfg, {
 		Name = "string!",
@@ -4469,7 +4454,6 @@ function KeyList:_place()
 	frame.Position = UDim2.fromOffset(math.floor(pos.X), math.floor(pos.Y))
 end
 
--- Show or hide the panel to match the window state (called by Window:_transition).
 function KeyList:_sync()
 	if self._destroyed then
 		return
@@ -4549,8 +4533,6 @@ function KeyList.new(window, cfg)
 	self.Pos = cfg.Position
 	window._maid:Give(self._maid)
 
-	-- Same visual language as the minimized pill: Window fill, Pill transparency,
-	-- accent -> accent-alt gradient stroke, Window-radius corners.
 	local frame = Create.new("Frame", {
 		Name = "KeybindList",
 		Size = UDim2.fromOffset(self._width, 0),
@@ -4845,8 +4827,6 @@ __defs["core/snow"] = function()
 local Services = require("util/services")
 local Create = require("util/create")
 
--- Falling snow over the window. Gold flakes when the window's AccessTier is Premium.
--- One shared on/off preference for every RVC Hub script, stored in RVCHub/ui_snow.txt.
 local Snow = {}
 
 local PREF_FOLDER = "RVCHub"
@@ -4974,9 +4954,7 @@ return Snow
 end
 
 __defs["core/stattracker"] = function()
--- Stat tracker: a Stats tab inside the window plus a floating, draggable overlay that shows while the
--- window is minimized (same look as the keybind list). Tracks any number: leaderstats, attributes,
--- value objects, text labels, a function, or counters the script bumps itself.
+
 local Create = require("util/create")
 local Tween = require("util/tween")
 local Drag = require("util/drag")
@@ -5058,7 +5036,6 @@ local function readInstance(inst)
 	return nil
 end
 
--- Builds the function that reads a stat's current value, from whichever source the config names.
 local function makeReader(cfg)
 	if cfg.Get then
 		return cfg.Get
@@ -5098,14 +5075,11 @@ local function makeReader(cfg)
 	return nil
 end
 
--- The style used for gains and rates: time stays time, everything else is shown compact.
 local DELTA_STYLE = { Time = "Time", Clock = "Time", Money = "Money", Percent = "Percent", Number = "Number" }
 
 local function deltaStyle(style)
 	return type(style) == "string" and DELTA_STYLE[style] or "Compact"
 end
-
--- ----------------------------------------------------------------- stat
 
 function Stat:_read()
 	if not self._reader then
@@ -5117,7 +5091,6 @@ function Stat:_read()
 	end
 end
 
--- Feeds a new reading in. Numbers count toward the session gain while the tracker runs.
 function Stat:_push(raw)
 	self._raw = raw
 	local number = type(raw) ~= "boolean" and Format.parse(raw) or nil
@@ -5153,7 +5126,6 @@ function Stat:GetGained()
 	return self._mode == "Earned" and self._earned or self._net
 end
 
--- Average gain per hour over the session (nil until there is enough time to say).
 function Stat:GetRate()
 	local elapsed = self._tracker:GetElapsed()
 	if elapsed < RATE_AFTER then
@@ -5250,13 +5222,11 @@ function Stat:Get()
 	return self._number ~= nil and self._number or self._raw
 end
 
--- For counters and script-driven stats: set the current value.
 function Stat:Set(value)
 	self:_push(value)
 	self:_render()
 end
 
--- For counters: add to the current value (default 1). Counts toward the session gain.
 function Stat:Increment(amount)
 	self:_push((self._number or 0) + (amount or 1))
 	self:_render()
@@ -5288,7 +5258,6 @@ function Stat:SetName(text)
 	end
 end
 
--- Start counting the gain again from the current value.
 function Stat:Reset()
 	self._net, self._earned = 0, 0
 	self:_render()
@@ -5308,7 +5277,6 @@ function Stat:SetVisible(visible)
 	self._tracker:_sync()
 end
 
--- Show or hide this stat in the floating overlay (it stays in the tab).
 function Stat:SetHud(show)
 	self._showInHud = show and true or false
 	if self._hud then
@@ -5336,8 +5304,6 @@ function Stat:Remove()
 end
 
 Stat.Destroy = Stat.Remove
-
--- -------------------------------------------------------------- tracker
 
 function Tracker:_nextOrder()
 	self._order = self._order + 1
@@ -5498,9 +5464,6 @@ function Tracker:_cardFor(group)
 	return card
 end
 
--- Adds a tracked stat. Source (pick one): Leaderstat = "Coins" | Attribute = "Level" (+ Instance) |
--- Source = ValueObject or TextLabel (or a function returning one) | Get = function() return value end.
--- With no source it is a counter you drive with :Set / :Increment.
 function Tracker:Add(cfg)
 	if self._destroyed then
 		return nil
@@ -5579,7 +5542,6 @@ function Tracker:Add(cfg)
 	return stat
 end
 
--- Shortcuts for common sources.
 function Tracker:AddLeaderstat(name, cfg)
 	cfg = cfg or {}
 	cfg.Name = cfg.Name or name
@@ -5602,8 +5564,6 @@ function Tracker:AddCounter(name, cfg)
 	return self:Add(cfg)
 end
 
--- Tracks every value in the player's leaderstats, including ones the game adds later.
--- opts: Group, Exclude = { "Name", ... }, Format, Hud
 function Tracker:AddLeaderstats(opts)
 	opts = opts or {}
 	local exclude = {}
@@ -5698,7 +5658,6 @@ function Tracker:Resume()
 	self:_refreshSession()
 end
 
--- Zero the session clock and every stat's gain.
 function Tracker:Reset()
 	self._elapsed = 0
 	self._lastTick = os.clock()
@@ -5709,8 +5668,6 @@ function Tracker:Reset()
 	self:_refreshSession()
 end
 
--- A short line such as "Farming room 3". Shown under the overlay title and in the Session card.
--- style: Text (default), Accent, Success, Danger, Warning. Pass nil to clear.
 function Tracker:SetStatus(text, style)
 	self._status = text ~= nil and tostring(text) or nil
 	self._statusStyle = style or "Text"
@@ -5742,7 +5699,6 @@ function Tracker:GetShowWhen()
 	return self._showWhen
 end
 
--- Turn the floating overlay on or off (the Stats tab is not affected).
 function Tracker:SetVisible(visible)
 	self._forceHidden = not visible
 	self:_sync()
@@ -5835,7 +5791,6 @@ function Tracker:_hasHudStats()
 	return false
 end
 
--- Show or hide the overlay to match the window state (called by Window:_transition).
 function Tracker:_sync()
 	if self._destroyed then
 		return
@@ -5882,7 +5837,6 @@ function Tracker:Destroy()
 	self._window:_removeTracker(self)
 end
 
--- The Session card at the top of the tab: clock, status, overlay options, pause and reset.
 function Tracker:_buildSessionCard()
 	local card = self._tab:CreateCard({ Name = "Session", Highlight = true })
 	self._sessionCard = card
@@ -6073,7 +6027,6 @@ function Tracker.new(window, cfg)
 	Create.Padding(body, 0, 6, 0, 0)
 	self._body = body
 
-	-- tap the header to collapse; drag anywhere on the panel to move it
 	local start
 	local draggable = cfg.Draggable ~= false
 	local function bindDrag(handle, onTap)
@@ -6400,7 +6353,7 @@ function Tab:_setRail(rail)
 		badge.Position = UDim2.new(0, 10, 0.5, 0)
 	end
 	if self._noIcon then
-		-- no icon: hide the icon slot in the full sidebar and start the label at the normal padding
+
 		frame.Visible = rail
 		badge.Visible = rail
 		self._label.Position = UDim2.new(0, 14, 0, 0)
@@ -6480,8 +6433,6 @@ __defs["core/tier"] = function()
 local Services = require("util/services")
 local Create = require("util/create")
 
--- Presentation-only membership label for the window footer: "<version> • Free" or "<version> • ✦ Premium".
--- It never decides entitlement; the authenticated script is responsible for that.
 local Tier = {}
 
 local GOLD_LIGHT = Color3.fromRGB(255, 232, 168)
@@ -6494,7 +6445,6 @@ local GAP = 5
 
 local UNSET = { unverified = true, unknown = true, none = true, [""] = true }
 
--- Returns "Free", "Premium" or nil (unverified). Anything unrecognised is treated as unverified, never as Premium.
 function Tier.normalize(value, where)
 	if value == nil or value == false then
 		return nil
@@ -6511,7 +6461,6 @@ function Tier.normalize(value, where)
 	return nil
 end
 
--- Maps key-gate validation metadata (the `data` passed to OnSuccess) to a tier. Missing metadata stays unverified.
 function Tier.fromKeyData(data)
 	if type(data) ~= "table" then
 		return nil
@@ -6537,9 +6486,6 @@ local function measure(text, font, size)
 	return #text * size * 0.55
 end
 
--- Appends the tier label after `line` (the footer's version text) in the same row.
--- `reserve(theme)` returns the width available to the whole row in unscaled pixels; `lite` drops the glow stroke.
--- With no tier the line keeps the exact size and position it was created with.
 function Tier.attach(window, line, lineFont, lineSize, reserve, lite)
 	local theme = window.Theme
 	local parent = line.Parent
@@ -7393,6 +7339,7 @@ local function build(cfg, partial)
 	if cfg.Snow ~= false then
 		local snowButton = topButton(self, actions, SNOWFLAKE, "Text")
 		snowButton.Name = "SnowToggle"
+		self._snowButton = snowButton
 		snowButton.TextSize = 16
 		snowButton.LayoutOrder = 2
 		self._maid:Give(snowButton.Activated:Connect(function()
@@ -7489,7 +7436,7 @@ local function build(cfg, partial)
 	self._maid:Give(hamburger.Activated:Connect(function()
 		self:SetSidebarCollapsed(not self._userRail)
 	end))
-	-- filter after a short pause in typing, not on every keystroke
+
 	local searchToken = 0
 	self._maid:Give(searchBox:GetPropertyChangedSignal("Text"):Connect(function()
 		searchToken = searchToken + 1
@@ -7571,8 +7518,6 @@ function Window:_updateScale()
 	self._root.Size = UDim2.fromOffset(abs.X / scale, abs.Y / scale)
 end
 
--- Factor between unscaled layout pixels and absolute pixels, or nil while the open/close animation runs
--- (text is re-fitted once the animation settles, instead of every frame).
 function Window:_textScale()
 	local anim = self._scale.Scale
 	if anim < 0.999 then
@@ -7673,7 +7618,7 @@ function Window:_layout(animate)
 	end
 	self._searchWrap.Visible = searchW > 0
 	self._searchWrap.Size = UDim2.fromOffset(searchW, 30)
-	local actionsW = (searchW > 0 and (searchW + 6) or 0) + 66
+	local actionsW = (searchW > 0 and (searchW + 6) or 0) + 66 + (self._snowButton and 36 or 0)
 	self._pageTitle.Position = UDim2.new(0, leftInset, 0.5, 0)
 	self._pageTitle.Size = UDim2.new(1, -(leftInset + actionsW + 18), 1, 0)
 
@@ -8026,7 +7971,6 @@ function Window:GetKeybindList()
 	return self._keylist
 end
 
--- A Stats tab plus a floating overlay that shows while the window is minimized. See core/stattracker.lua.
 function Window:CreateStatTracker(cfg)
 	if self._destroyed then
 		return nil
@@ -8077,7 +8021,6 @@ function Window:SetSubtitle(text)
 	end
 end
 
--- Presentation only: "Free", "Premium" or nil/"Unverified" (no label). Entitlement is enforced by the authenticated script.
 function Window:SetAccessTier(tier)
 	if self._destroyed then
 		return
@@ -8089,7 +8032,6 @@ function Window:SetAccessTier(tier)
 	end
 end
 
--- Turns the falling snow on or off and remembers it for every RVC Hub script (unless remember is false).
 function Window:SetSnow(on, remember)
 	if self._destroyed then
 		return
@@ -8105,7 +8047,6 @@ function Window:GetAccessTier()
 	return self._tier and self._tier:Get() or nil
 end
 
--- Replaces the footer text (usually the version string) without touching the membership label.
 function Window:SetFooterText(text)
 	if self._destroyed then
 		return
@@ -8796,8 +8737,7 @@ end
 end
 
 __defs["util/fit"] = function()
--- Text measuring and wrapping. Instead of cutting text off with "...",
--- labels wrap onto extra lines and their row grows to fit them.
+
 local TextService = require("util/services").TextService
 
 local Fit = {}
@@ -8827,27 +8767,16 @@ local function measure(text, size, font, width)
 	return result
 end
 
--- Width of `text` on one line, in unscaled pixels.
 function Fit.width(text, size, font)
 	local bounds = measure(text, size, font, HUGE)
 	return bounds and math.ceil(bounds.X) or #text * size * 0.55
 end
 
--- Height of `text` when wrapped to `width` unscaled pixels.
 function Fit.height(text, size, font, width)
 	local bounds = measure(text, size, font, math.max(math.floor(width), 1))
 	return bounds and math.ceil(bounds.Y) or size
 end
 
--- Keeps `container` tall enough for `label` to wrap its text onto several lines.
--- A single line keeps the container at `base` height; every extra line adds its height on top.
--- opts:
---   label, container, base, maid
---   scale()      returns the current unscaled-to-absolute factor, or nil while the window animates
---   reserve      pixels kept free next to the label (number, or function(width) -> number)
---   padX         horizontal padding inside the label
---   sizeLabel    set the label width to the container width minus `reserve`
---   watch        extra TextLabels whose text affects `reserve`
 function Fit.bind(opts)
 	local label, container = opts.label, opts.container
 	label.TextWrapped = true
@@ -8924,7 +8853,7 @@ return Fit
 end
 
 __defs["util/format"] = function()
--- Number formatting and parsing for live stats.
+
 local Format = {}
 
 local SUFFIXES = { "", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc" }
@@ -8945,7 +8874,6 @@ local function fixed(n, decimals)
 	return trim(string.format("%." .. decimals .. "f", n))
 end
 
--- 1234 -> "1.23K", 15300000 -> "15.3M"; three significant digits.
 function Format.compact(n)
 	if n ~= n then
 		return "0"
@@ -8974,7 +8902,6 @@ function Format.compact(n)
 	return sign .. fixed(scaled, decimals) .. SUFFIXES[tier + 1]
 end
 
--- 1234567 -> "1,234,567"
 function Format.commas(n, decimals)
 	local text = fixed(n, decimals or 0)
 	local sign, int, frac = string.match(text, "^(-?)(%d+)(.*)$")
@@ -8986,7 +8913,6 @@ function Format.commas(n, decimals)
 	return sign .. int .. frac
 end
 
--- 3725 -> "1h 02m", 125 -> "2m 05s", 9 -> "9s"
 function Format.duration(seconds)
 	seconds = math.max(math.floor(seconds or 0), 0)
 	local d = math.floor(seconds / 86400)
@@ -9005,7 +8931,6 @@ function Format.duration(seconds)
 	return string.format("%ds", s)
 end
 
--- 3725 -> "1:02:05"
 function Format.clock(seconds)
 	seconds = math.max(math.floor(seconds or 0), 0)
 	local h = math.floor(seconds / 3600)
@@ -9017,8 +8942,6 @@ function Format.clock(seconds)
 	return string.format("%d:%02d", m, s)
 end
 
--- Reads numbers the way games display them: 1234, "1,234", "$1.5M", "12.3K Coins", "2.1e6".
--- Returns nil when there is no number in the text.
 function Format.parse(value)
 	if type(value) == "number" then
 		return value
@@ -9050,8 +8973,6 @@ function Format.parse(value)
 	return n
 end
 
--- Formats a value for a stat. `style` is Compact (default), Number, Money, Time, Clock, Percent, Text,
--- or a function(value) -> string. Prefix and suffix wrap the result.
 function Format.value(value, style, decimals, prefix, suffix)
 	local text
 	if type(style) == "function" then
@@ -9226,8 +9147,7 @@ return Glyphs
 end
 
 __defs["util/keys"] = function()
--- Shared key handling for keybinds and the keybind list.
--- A bind is either an Enum.KeyCode (keyboard or gamepad) or an Enum.UserInputType mouse button.
+
 local Keys = {}
 
 local function enumItem(enum, name)
@@ -9240,8 +9160,6 @@ local function enumItem(enum, name)
 	return nil
 end
 
--- Mouse buttons the running Roblox build actually exposes. Side buttons are picked up
--- automatically if the engine ever reports them.
 local MOUSE = {}
 for _, name in ipairs({ "MouseButton1", "MouseButton2", "MouseButton3", "MouseButton4", "MouseButton5" }) do
 	local item = enumItem(Enum.UserInputType, name)
@@ -9316,8 +9234,6 @@ function Keys.isMouse(key)
 	return key ~= nil and key.EnumType == Enum.UserInputType
 end
 
--- Accepts an Enum.KeyCode, a mouse Enum.UserInputType, or a name such as "F", "MouseButton2", "RMB" or "RightClick".
--- Returns the EnumItem, or nil for nil / "" / unknown names (unless `strict`, which errors).
 function Keys.parse(value, where, strict)
 	if value == nil or value == "" then
 		return nil
@@ -9352,7 +9268,6 @@ function Keys.text(key, empty)
 	return SHORT[key.Name] or key.Name
 end
 
--- The bind an input represents, or nil if it is not bindable (mouse movement, touch, scroll...).
 function Keys.fromInput(input)
 	local kind = input.UserInputType
 	if MOUSE[kind.Name] == kind then
@@ -9366,7 +9281,6 @@ function Keys.fromInput(input)
 	return nil
 end
 
--- While any keybind is waiting for a key, presses must not also trigger other binds or the menu key.
 local capturing, captured = 0, nil
 
 function Keys.beginCapture()
@@ -9653,7 +9567,7 @@ local Jnkie = require("providers/jnkie")
 local Env = require("util/env")
 local Tier = require("core/tier")
 
-local VERSION = "0.11.0"
+local VERSION = "0.11.1"
 local BUILD = "512dc12f1b8c"
 
 local Library = {
@@ -9711,7 +9625,6 @@ function Library:CreateKeyGate(cfg)
 	return gate
 end
 
--- Maps the `data` passed to a key gate's OnSuccess to "Free", "Premium" or nil (unverified), for Window:SetAccessTier.
 function Library:AccessTierFromKeyData(data)
 	return Tier.fromKeyData(data)
 end
