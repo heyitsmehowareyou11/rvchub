@@ -6113,7 +6113,7 @@ local Tab = {}
 Tab.__index = Tab
 
 function Tab.new(window, cfg, groupItems, group)
-	Validate.check("CreateTab", cfg, { Name = "string!", Icon = "string|number|boolean", Group = "string", Tint = "boolean", Heading = "string", Description = "string" })
+	Validate.check("CreateTab", cfg, { Name = "string!", Icon = "string|number|boolean", Group = "string", Tint = "boolean", Heading = "string", Description = "string", Premium = "boolean" })
 	local theme = window.Theme
 	local th = theme:Get()
 	local ctx = window._ctx
@@ -6174,6 +6174,36 @@ function Tab.new(window, cfg, groupItems, group)
 			return t.TextSize.Body
 		end,
 	})
+	if cfg.Premium then
+		local lite = window._cfg and window._cfg.Effects == "Lite"
+		local shine = Create.new("UIGradient", {
+			Color = ColorSequence.new({
+				ColorSequenceKeypoint.new(0, Color3.fromRGB(201, 154, 46)),
+				ColorSequenceKeypoint.new(0.35, Color3.fromRGB(240, 197, 96)),
+				ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 244, 205)),
+				ColorSequenceKeypoint.new(0.65, Color3.fromRGB(240, 197, 96)),
+				ColorSequenceKeypoint.new(1, Color3.fromRGB(201, 154, 46)),
+			}),
+			Parent = label,
+		})
+		local glow = Create.new("UIStroke", {
+			ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual,
+			Color = Color3.fromRGB(240, 197, 96),
+			Thickness = 1,
+			Transparency = 0.82,
+			Enabled = not lite,
+			Parent = label,
+		})
+		self._premium, self._premiumGlow = true, glow
+		if not lite then
+			shine.Offset = Vector2.new(-1, 0)
+			local sweep = require("util/services").TweenService:Create(shine, TweenInfo.new(2.6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, false, 1.2), { Offset = Vector2.new(1, 0) })
+			sweep:Play()
+			self._maid:Give(function()
+				sweep:Cancel()
+			end)
+		end
+	end
 	self._noIcon = noIcon
 	self.Button, self._icon, self._label = button, icon, label
 	self._badge, self._badgeGradient = badge, badgeGradient
@@ -6307,7 +6337,12 @@ function Tab:_renderButton(animate)
 	local rowTransparency = active and 0.9 or (hover and 0.5 or 1)
 	local rowColor = active and c.Accent or c.Control
 	local badgeTransparency = active and 0 or 1
-	self._label.TextColor3 = (active or hover) and c.Text or c.TextDim
+	if self._premium then
+		self._label.TextColor3 = (active or hover) and Color3.new(1, 1, 1) or Color3.fromRGB(205, 205, 205)
+		self._premiumGlow.Transparency = active and 0.6 or 0.82
+	else
+		self._label.TextColor3 = (active or hover) and c.Text or c.TextDim
+	end
 	self._icon:Paint(active and c.AccentText or c.TextDim, active or hover)
 	self._badgeGradient.Enabled = active
 	if animate then
@@ -9567,7 +9602,7 @@ local Jnkie = require("providers/jnkie")
 local Env = require("util/env")
 local Tier = require("core/tier")
 
-local VERSION = "0.11.1"
+local VERSION = "0.12.0"
 local BUILD = "512dc12f1b8c"
 
 local Library = {
