@@ -4841,6 +4841,138 @@ end
 return PushButton
 end
 
+__defs["core/snow"] = function()
+local Services = require("util/services")
+local Create = require("util/create")
+
+-- Falling snow over the window. Gold flakes when the window's AccessTier is Premium.
+-- One shared on/off preference for every RVC Hub script, stored in RVCHub/ui_snow.txt.
+local Snow = {}
+
+local PREF_FOLDER = "RVCHub"
+local PREF_FILE = "RVCHub/ui_snow.txt"
+local COUNT = 45
+local WHITE = Color3.new(1, 1, 1)
+local GOLD = {
+	Color3.fromRGB(255, 232, 168),
+	Color3.fromRGB(240, 197, 96),
+	Color3.fromRGB(201, 154, 46),
+}
+
+local function readPref()
+	local ok, value = pcall(function()
+		if isfile and isfile(PREF_FILE) then
+			return readfile(PREF_FILE)
+		end
+		return nil
+	end)
+	return not (ok and value == "off")
+end
+
+local function writePref(on)
+	pcall(function()
+		if makefolder and isfolder and not isfolder(PREF_FOLDER) then
+			makefolder(PREF_FOLDER)
+		end
+		if writefile then
+			writefile(PREF_FILE, on and "on" or "off")
+		end
+	end)
+end
+
+function Snow.attach(window, main, allowed)
+	local state = { allowed = allowed ~= false, enabled = false, flakes = {}, gold = nil, clock = 0 }
+	if not state.allowed then
+		return state
+	end
+	state.enabled = readPref()
+	local layer = Create.new("Frame", {
+		Name = "Snow",
+		BackgroundTransparency = 1,
+		Size = UDim2.fromScale(1, 1),
+		ClipsDescendants = true,
+		ZIndex = 50,
+		Parent = main,
+	})
+	pcall(function()
+		layer.Interactable = false
+	end)
+	window.Theme:Corner(layer, "Window")
+	for _ = 1, COUNT do
+		local size = math.random(2, 5)
+		local flake = Create.new("Frame", {
+			BorderSizePixel = 0,
+			BackgroundColor3 = WHITE,
+			BackgroundTransparency = 0.25 + math.random() * 0.4,
+			Size = UDim2.fromOffset(size, size),
+			ZIndex = 50,
+			Parent = layer,
+		})
+		pcall(function()
+			flake.Interactable = false
+		end)
+		Create.new("UICorner", { CornerRadius = UDim.new(1, 0), Parent = flake })
+		state.flakes[#state.flakes + 1] = {
+			frame = flake,
+			x = math.random(),
+			y = math.random(),
+			speed = 18 + size * 6 + math.random() * 12,
+			sway = 4 + math.random() * 12,
+			rate = 0.6 + math.random() * 1.2,
+			phase = math.random() * math.pi * 2,
+		}
+	end
+	state.layer = layer
+	window._maid:Give(layer)
+
+	local function paint(gold)
+		state.gold = gold
+		for _, flake in ipairs(state.flakes) do
+			flake.frame.BackgroundColor3 = gold and GOLD[math.random(1, #GOLD)] or WHITE
+		end
+	end
+
+	window._maid:Give(Services.RunService.RenderStepped:Connect(function(dt)
+		if not state.enabled then
+			layer.Visible = false
+			return
+		end
+		layer.Visible = true
+		local gold = window:GetAccessTier() == "Premium"
+		if gold ~= state.gold then
+			paint(gold)
+		end
+		local width, height = layer.AbsoluteSize.X, layer.AbsoluteSize.Y
+		if width < 1 or height < 1 then
+			return
+		end
+		state.clock = state.clock + dt
+		for _, flake in ipairs(state.flakes) do
+			flake.y = flake.y + flake.speed * dt / height
+			if flake.y > 1.02 then
+				flake.y = -0.02
+				flake.x = math.random()
+			end
+			local x = flake.x * width + math.sin(state.clock * flake.rate + flake.phase) * flake.sway
+			flake.frame.Position = UDim2.fromOffset(x, flake.y * height)
+		end
+	end))
+	return state
+end
+
+function Snow.set(state, on, remember)
+	if not state or not state.allowed then
+		return
+	end
+	state.enabled = on == true
+	if remember ~= false then
+		writePref(state.enabled)
+	end
+end
+
+return Snow
+end
+
 __defs["core/stattracker"] = function()
 -- Stat tracker: a Stats tab inside the window plus a floating, draggable overlay that shows while the
 -- window is minimized (same look as the keybind list). Tracks any number: leaderstats, attributes,
@@ -6716,6 +6848,7 @@ local Effects = require("core/effects")
 local Toast = require("core/toast")
 local Dialog = require("core/dialog")
 local Tier = require("core/tier")
+local Snow = require("core/snow")
 
 local UserInputService = Services.UserInputService
 
@@ -6730,6 +6863,7 @@ local TWO_COLUMN_MIN = 420
 local CLOSE = "\u{00D7}"
 local MINIMIZE = "\u{2013}"
 local CHEVRON = "\u{203A}"
+local SNOWFLAKE = "\u{2744}"
 
 local function topButton(window, parent, text, hoverToken)
 	local theme = window.Theme
@@ -6799,6 +6933,7 @@ local function build(cfg, partial)
 		TabIcons = "boolean",
 		Glow = "number",
 		ConfirmClose = "boolean",
+		Snow = "boolean",
 	})
 
 	local markName = string.lower(cfg.Mark or "cross")
@@ -6874,6 +7009,7 @@ local function build(cfg, partial)
 		Effects.shadow(self, main, scale)
 		Effects.windowGlow(self, main)
 	end
+	self._snow = Snow.attach(self, main, cfg.Snow)
 
 	local sidebar = Create.new("Frame", { Name = "Sidebar", Size = UDim2.new(0, sp.Sidebar, 1, 0), Parent = main })
 	theme:Bind(sidebar, { BackgroundColor3 = "Sidebar" })
@@ -7250,10 +7386,19 @@ local function build(cfg, partial)
 
 	local minimizeButton = topButton(self, actions, MINIMIZE, "Text")
 	minimizeButton.Name = "Minimize"
-	minimizeButton.LayoutOrder = 2
+	minimizeButton.LayoutOrder = 3
 	local closeButton = topButton(self, actions, CLOSE, "Danger")
 	closeButton.Name = "Close"
-	closeButton.LayoutOrder = 3
+	closeButton.LayoutOrder = 4
+	if cfg.Snow ~= false then
+		local snowButton = topButton(self, actions, SNOWFLAKE, "Text")
+		snowButton.Name = "SnowToggle"
+		snowButton.TextSize = 16
+		snowButton.LayoutOrder = 2
+		self._maid:Give(snowButton.Activated:Connect(function()
+			self:SetSnow(not self:GetSnow())
+		end))
+	end
 
 	local pages = Create.new("Frame", {
 		Name = "Pages",
@@ -7942,6 +8087,18 @@ function Window:SetAccessTier(tier)
 	if self._tier then
 		self._tier:Set(tier)
 	end
+end
+
+-- Turns the falling snow on or off and remembers it for every RVC Hub script (unless remember is false).
+function Window:SetSnow(on, remember)
+	if self._destroyed then
+		return
+	end
+	Snow.set(self._snow, on, remember)
+end
+
+function Window:GetSnow()
+	return self._snow ~= nil and self._snow.enabled == true
 end
 
 function Window:GetAccessTier()
@@ -9496,7 +9653,7 @@ local Jnkie = require("providers/jnkie")
 local Env = require("util/env")
 local Tier = require("core/tier")
 
-local VERSION = "0.10.0"
+local VERSION = "0.11.0"
 local BUILD = "512dc12f1b8c"
 
 local Library = {
