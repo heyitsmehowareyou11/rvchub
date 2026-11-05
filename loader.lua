@@ -17,6 +17,7 @@ local UNIVERSES = {
     [9098570654] = { name = "Survive an Apocalypse", script = "808c37cfc10bd339ba8289b11996b944381fe4660706e9f40f18fee8485e80d3", reentrant = true },
     [10769851460] = { name = "Criminal Simulator", script = "128eaa492d8d16bf83c056eab88bf0a183f4c80c755b213d2112d0af8989209b" },
     [7529591378] = { name = "Practical Basketball", script = "eca6f37ae9ac3426e44e8707e52fe031b0b39de01fc13188a0b972d294d86fd8", reentrant = true },
+    [10057403337] = { name = "Deagle Arena", script = "8b836a43dd230b520fb19c472718539d7dea7d9d80694955ce055207c9d637a8" },
 }
 
 
